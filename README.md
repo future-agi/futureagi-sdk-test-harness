@@ -40,7 +40,6 @@ MVP feature endpoints:
 | `POST /dataset/lifecycle` | Run dataset create/add-columns/add-rows e2e flow. |
 | `POST /dataset/management` | Run dataset lookup, column lookup, run-prompt, eval stats, optimisation, and delete flow. |
 | `POST /knowledge-base/lifecycle` | Run KB create/update/delete-files/delete flow without file uploads. |
-| `POST /model/log` | Run model logging e2e flow. |
 | `POST /prompt/lifecycle` | Run prompt generate/improve/create/commit/label/fetch/delete flow. |
 | `POST /provider-api-key/lifecycle` | Run provider API key set/list/get flow. |
 
@@ -75,7 +74,7 @@ uv run --extra dev pytest -q
 
 ## Status
 
-The first Python adapter currently passes:
+The Python and TypeScript adapters currently pass:
 
 - `auth_raw_request`
 - `annotation_bulk_log`
@@ -86,9 +85,11 @@ The first Python adapter currently passes:
 - `dataset_lifecycle_e2e`
 - `dataset_management_lifecycle_e2e`
 - `knowledge_base_lifecycle_e2e`
-- `model_log_lifecycle_e2e`
 - `prompt_lifecycle_e2e`
 - `provider_api_key_lifecycle_e2e`
+
+Model logging is intentionally not in the current stable contract: the current
+backend does not expose `/sdk/api/v1/log/model/` or `/log/model/`.
 
 Once stable, add adapters for:
 
