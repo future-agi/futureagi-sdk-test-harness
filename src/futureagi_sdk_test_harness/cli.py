@@ -15,11 +15,26 @@ def main() -> int:
     run_parser = subparsers.add_parser("run", help="Run SDK compliance tests")
     run_parser.add_argument("--adapter-url", required=True)
     run_parser.add_argument("--contract", type=Path, default=None)
+    run_parser.add_argument(
+        "--mock-bind-host",
+        default="127.0.0.1",
+        help="Host interface the mock API binds to.",
+    )
+    run_parser.add_argument(
+        "--mock-public-host",
+        default=None,
+        help="Hostname passed to the SDK adapter for reaching the mock API.",
+    )
 
     args = parser.parse_args()
     if args.command == "run":
         contract = load_contract(args.contract)
-        result = HarnessRunner(contract=contract, adapter_url=args.adapter_url).run()
+        result = HarnessRunner(
+            contract=contract,
+            adapter_url=args.adapter_url,
+            mock_bind_host=args.mock_bind_host,
+            mock_public_host=args.mock_public_host,
+        ).run()
         for suite in result.suite_results:
             if suite.skipped:
                 print(f"SKIP {suite.id}: {'; '.join(suite.errors)}")

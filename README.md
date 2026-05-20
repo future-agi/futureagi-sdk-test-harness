@@ -48,6 +48,16 @@ futureagi-sdk-test-harness run --adapter-url http://localhost:8080
 The adapter must already be running. The harness will start its own mock Future
 AGI API on a free local port and pass that URL to the adapter through `/init`.
 
+When the adapter runs inside Docker and the harness runs on the host, expose the
+mock API through Docker's host gateway:
+
+```bash
+futureagi-sdk-test-harness run \
+  --adapter-url http://localhost:8080 \
+  --mock-bind-host 0.0.0.0 \
+  --mock-public-host host.docker.internal
+```
+
 ## Test
 
 ```bash

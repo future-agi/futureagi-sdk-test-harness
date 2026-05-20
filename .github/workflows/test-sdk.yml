@@ -48,7 +48,19 @@ jobs:
       - name: Start adapter
         run: |
           docker run -d --name sdk-adapter -p 8080:8080 \
+            --add-host=host.docker.internal:host-gateway \
             futureagi-sdk-adapter:test
+
+      - name: Wait for adapter
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs sdk-adapter
+          exit 1
 
       - name: Install harness
         working-directory: harness
@@ -61,6 +73,8 @@ jobs:
         run: |
           futureagi-sdk-test-harness run \
             --adapter-url http://127.0.0.1:8080 \
+            --mock-bind-host 0.0.0.0 \
+            --mock-public-host host.docker.internal \
             | tee sdk-compliance-report.md
 
       - name: Upload compliance report

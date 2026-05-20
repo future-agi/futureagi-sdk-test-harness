@@ -26,9 +26,18 @@ class RunResult:
 
 
 class HarnessRunner:
-    def __init__(self, contract: Contract, adapter_url: str):
+    def __init__(
+        self,
+        contract: Contract,
+        adapter_url: str,
+        *,
+        mock_bind_host: str = "127.0.0.1",
+        mock_public_host: str | None = None,
+    ):
         self.contract = contract
         self.adapter_url = adapter_url.rstrip("/")
+        self.mock_bind_host = mock_bind_host
+        self.mock_public_host = mock_public_host
 
     def run(self) -> RunResult:
         health = self._adapter_request("GET", "/health").json()
@@ -60,7 +69,11 @@ class HarnessRunner:
 
     def _run_suite(self, suite: dict[str, Any]) -> SuiteResult:
         suite_id = suite["id"]
-        mock = MockFutureAgiServer(suite.get("mock") or []).start()
+        mock = MockFutureAgiServer(
+            suite.get("mock") or [],
+            bind_host=self.mock_bind_host,
+            public_host=self.mock_public_host,
+        ).start()
         errors: list[str] = []
         action_results: dict[str, Any] = {}
         try:
