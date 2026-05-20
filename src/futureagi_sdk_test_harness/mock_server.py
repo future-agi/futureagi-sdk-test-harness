@@ -30,7 +30,13 @@ class MockExpectation:
 
 
 class MockFutureAgiServer:
-    def __init__(self, expectations: list[dict[str, Any]]):
+    def __init__(
+        self,
+        expectations: list[dict[str, Any]],
+        *,
+        bind_host: str = "127.0.0.1",
+        public_host: str | None = None,
+    ):
         self.expectations = [
             MockExpectation(
                 id=item["id"],
@@ -41,6 +47,8 @@ class MockFutureAgiServer:
             )
             for item in expectations
         ]
+        self.bind_host = bind_host
+        self.public_host = public_host or ("127.0.0.1" if bind_host == "0.0.0.0" else bind_host)
         self.requests: list[RecordedRequest] = []
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -110,8 +118,8 @@ class MockFutureAgiServer:
                 self.end_headers()
                 self.wfile.write(raw)
 
-        self._server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-        self.url = f"http://127.0.0.1:{port}"
+        self._server = ThreadingHTTPServer((self.bind_host, port), Handler)
+        self.url = f"http://{self.public_host}:{port}"
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         return self
