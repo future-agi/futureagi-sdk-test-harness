@@ -1,0 +1,71 @@
+name: Future AGI SDK Compliance
+
+on:
+  workflow_call:
+    inputs:
+      adapter-dockerfile:
+        description: Path to SDK adapter Dockerfile
+        required: true
+        type: string
+      adapter-context:
+        description: Docker build context in caller repo
+        required: false
+        type: string
+        default: "."
+      report-name:
+        description: Artifact name for the compliance report
+        required: false
+        type: string
+        default: sdk-compliance-report
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout SDK repo
+        uses: actions/checkout@v4
+        with:
+          path: sdk-repo
+
+      - name: Checkout harness
+        uses: actions/checkout@v4
+        with:
+          repository: future-agi/futureagi-sdk-test-harness
+          path: harness
+
+      - name: Build adapter
+        run: |
+          docker build \
+            -f "sdk-repo/${{ inputs.adapter-dockerfile }}" \
+            -t futureagi-sdk-adapter:test \
+            "sdk-repo/${{ inputs.adapter-context }}"
+
+      - name: Start adapter
+        run: |
+          docker run -d --name sdk-adapter -p 8080:8080 \
+            futureagi-sdk-adapter:test
+
+      - name: Install harness
+        working-directory: harness
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run compliance tests
+        working-directory: harness
+        run: |
+          futureagi-sdk-test-harness run \
+            --adapter-url http://127.0.0.1:8080 \
+            | tee sdk-compliance-report.md
+
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.report-name }}
+          path: harness/sdk-compliance-report.md

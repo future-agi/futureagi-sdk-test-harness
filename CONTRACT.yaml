@@ -1,0 +1,292 @@
+version: "0.1"
+name: futureagi-sdk-compliance
+suites:
+  - id: auth_raw_request
+    name: Authenticated raw SDK request
+    requires:
+      - auth_api_key
+      - raw_request
+    mock:
+      - id: healthcheck
+        method: GET
+        path: /healthcheck
+        status: 200
+        response:
+          status: true
+          result:
+            ok: true
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: raw_healthcheck
+        method: POST
+        endpoint: /raw-request
+        body:
+          method: GET
+          path: healthcheck
+    assertions:
+      - type: mock_request
+        request_id: healthcheck
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+
+  - id: annotation_bulk_log
+    name: Annotation bulk logging
+    requires:
+      - auth_api_key
+      - annotation_bulk_log
+    mock:
+      - id: annotation_labels
+        method: GET
+        path: /tracer/get-annotation-labels/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: label-text
+              name: quality
+              type: text
+            - id: label-score
+              name: helpfulness
+              type: numeric
+            - id: label-category
+              name: category
+              type: categorical
+      - id: bulk_annotation
+        method: POST
+        path: /tracer/bulk-annotation/
+        status: 200
+        response:
+          status: true
+          result:
+            message: Bulk annotation completed
+            annotations_created: 3
+            annotations_updated: 0
+            notes_created: 1
+            succeeded_count: 1
+            errors_count: 0
+            warnings_count: 0
+            warnings: []
+            errors: []
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: annotation_log
+        method: POST
+        endpoint: /annotation/log
+        body:
+          records:
+            - context.span_id: span-123
+              annotation.quality.text: clear answer
+              annotation.helpfulness.score: 0.91
+              annotation.category.label: helpful
+              annotation.notes: reviewer note
+    assertions:
+      - type: mock_request
+        request_id: annotation_labels
+        min_count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+      - type: mock_request
+        request_id: bulk_annotation
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+        json_contains:
+          records:
+            - observation_span_id: span-123
+      - type: action_result
+        action_id: annotation_log
+        path: result.succeeded_count
+        expected: 1
+      - type: action_result
+        action_id: annotation_log
+        path: result.notes_created
+        expected: 1
+
+  - id: annotation_queue_lifecycle_e2e
+    name: Annotation queue lifecycle e2e
+    requires:
+      - auth_api_key
+      - annotation_queue_lifecycle
+    mock:
+      - id: queue_create
+        method: POST
+        path: /model-hub/annotation-queues/
+        status: 200
+        response:
+          status: true
+          result:
+            id: queue_e2e_123
+            name: SDK e2e queue
+            status: draft
+            requires_review: true
+            annotations_required: 1
+      - id: queue_add_label
+        method: POST
+        path: /model-hub/annotation-queues/queue_e2e_123/add-label/
+        status: 200
+        response:
+          status: true
+          result:
+            attached: true
+      - id: queue_add_items
+        method: POST
+        path: /model-hub/annotation-queues/queue_e2e_123/items/add-items/
+        status: 200
+        response:
+          status: true
+          result:
+            added: 1
+            duplicates: 0
+            errors: []
+      - id: queue_submit_annotations
+        method: POST
+        path: /model-hub/annotation-queues/queue_e2e_123/items/item_e2e_123/annotations/submit/
+        status: 200
+        response:
+          status: true
+          result:
+            submitted: true
+            item_id: item_e2e_123
+            status: completed
+      - id: queue_complete_item
+        method: POST
+        path: /model-hub/annotation-queues/queue_e2e_123/items/item_e2e_123/complete/
+        status: 200
+        response:
+          status: true
+          result:
+            completed: true
+            item_id: item_e2e_123
+            next_item: null
+      - id: queue_progress
+        method: GET
+        path: /model-hub/annotation-queues/queue_e2e_123/progress/
+        status: 200
+        response:
+          status: true
+          result:
+            total: 1
+            pending: 0
+            in_progress: 0
+            completed: 1
+            skipped: 0
+            progress_pct: 100.0
+      - id: queue_export
+        method: GET
+        path: /model-hub/annotation-queues/queue_e2e_123/export/
+        status: 200
+        response:
+          status: true
+          result:
+            - item_id: item_e2e_123
+              source_type: trace
+              source_id: trace_e2e_123
+              annotations:
+                - label_id: label_e2e_123
+                  value: accepted
+              notes: reviewer note
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: queue_lifecycle
+        method: POST
+        endpoint: /annotation-queue/lifecycle
+        body:
+          queue:
+            name: SDK e2e queue
+            description: Created by SDK e2e compliance suite
+            requires_review: true
+            annotations_required: 1
+          label_id: label_e2e_123
+          item:
+            id: item_e2e_123
+            source_type: trace
+            source_id: trace_e2e_123
+          annotations:
+            - label_id: label_e2e_123
+              value: accepted
+          notes: reviewer note
+    assertions:
+      - type: mock_request
+        request_id: queue_create
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+        json_contains:
+          name: SDK e2e queue
+          requires_review: true
+      - type: mock_request
+        request_id: queue_add_label
+        count: 1
+        json_contains:
+          label_id: label_e2e_123
+      - type: mock_request
+        request_id: queue_add_items
+        count: 1
+        json_contains:
+          items:
+            - source_type: trace
+              source_id: trace_e2e_123
+      - type: mock_request
+        request_id: queue_submit_annotations
+        count: 1
+        json_contains:
+          annotations:
+            - label_id: label_e2e_123
+              value: accepted
+          notes: reviewer note
+      - type: mock_request
+        request_id: queue_progress
+        count: 1
+      - type: mock_request
+        request_id: queue_export
+        count: 1
+        query:
+          export_format: json
+          status: completed
+      - type: action_result
+        action_id: queue_lifecycle
+        path: result.queue.id
+        expected: queue_e2e_123
+      - type: action_result
+        action_id: queue_lifecycle
+        path: result.added_items.added
+        expected: 1
+      - type: action_result
+        action_id: queue_lifecycle
+        path: result.progress.completed
+        expected: 1
