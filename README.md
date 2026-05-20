@@ -34,6 +34,9 @@ MVP feature endpoints:
 | `POST /raw-request` | Make a low-level SDK authenticated request. |
 | `POST /annotation/log` | Log Future AGI annotation records through the SDK. |
 | `POST /annotation-queue/lifecycle` | Run the queue create/add/submit/complete/export e2e flow. |
+| `POST /annotation-score/lifecycle` | Run score create/bulk/fetch e2e flow. |
+| `POST /dataset/lifecycle` | Run dataset create/add-columns/add-rows e2e flow. |
+| `POST /model/log` | Run model logging e2e flow. |
 
 ## Local Usage
 
@@ -71,6 +74,9 @@ This is the MVP skeleton with the first Python adapter passing:
 - `auth_raw_request`
 - `annotation_bulk_log`
 - `annotation_queue_lifecycle_e2e`
+- `annotation_score_lifecycle_e2e`
+- `dataset_lifecycle_e2e`
+- `model_log_lifecycle_e2e`
 
 Once stable, add adapters for:
 

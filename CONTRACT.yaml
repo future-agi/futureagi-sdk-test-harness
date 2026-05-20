@@ -290,3 +290,286 @@ suites:
         action_id: queue_lifecycle
         path: result.progress.completed
         expected: 1
+
+  - id: model_log_lifecycle_e2e
+    name: Model logging lifecycle e2e
+    requires:
+      - auth_api_key
+      - model_log_lifecycle
+    mock:
+      - id: model_log
+        method: POST
+        path: /sdk/api/v1/log/model/
+        status: 200
+        response:
+          status: success
+          result:
+            log_id: log_e2e_123
+            accepted: true
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: model_log
+        method: POST
+        endpoint: /model/log
+        body:
+          model_id: model-e2e
+          model_type: GENERATIVE_LLM
+          environment: PRODUCTION
+          model_version: v1
+          prediction_timestamp: 1767225600
+          conversation:
+            chat_history:
+              - role: user
+                content: hello
+              - role: assistant
+                content: hi there
+          tags:
+            sdk_compliance: true
+            source: harness
+    assertions:
+      - type: mock_request
+        request_id: model_log
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+        json_contains:
+          model_id: model-e2e
+          model_type: GenerativeLLM
+          environment: 3
+          model_version: v1
+          prediction_timestamp: 1767225600
+          conversation:
+            chat_history:
+              - role: user
+                content: hello
+          tags:
+            sdk_compliance: true
+      - type: action_result
+        action_id: model_log
+        path: body.result.log_id
+        expected: log_e2e_123
+
+  - id: dataset_lifecycle_e2e
+    name: Dataset lifecycle e2e
+    requires:
+      - auth_api_key
+      - dataset_lifecycle
+    mock:
+      - id: dataset_create
+        method: POST
+        path: /model-hub/develops/create-empty-dataset/
+        status: 200
+        response:
+          status: true
+          result:
+            dataset_id: 00000000-0000-0000-0000-000000000123
+            dataset_name: SDK e2e dataset
+            dataset_model_type: GenerativeLLM
+      - id: dataset_add_columns
+        method: POST
+        path: /model-hub/develops/00000000-0000-0000-0000-000000000123/add_columns/
+        status: 200
+        response:
+          status: true
+          result:
+            columns_created: 2
+      - id: dataset_add_rows
+        method: POST
+        path: /model-hub/develops/00000000-0000-0000-0000-000000000123/add_rows/
+        status: 200
+        response:
+          status: true
+          result:
+            rows_created: 1
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: dataset_lifecycle
+        method: POST
+        endpoint: /dataset/lifecycle
+        body:
+          name: SDK e2e dataset
+          model_type: GENERATIVE_LLM
+          columns:
+            - name: input
+              data_type: TEXT
+            - name: score
+              data_type: FLOAT
+          rows:
+            - cells:
+                - column_name: input
+                  value: hello
+                - column_name: score
+                  value: 0.98
+    assertions:
+      - type: mock_request
+        request_id: dataset_create
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+        json_contains:
+          new_dataset_name: SDK e2e dataset
+          model_type: GenerativeLLM
+      - type: mock_request
+        request_id: dataset_add_columns
+        count: 1
+        json_contains:
+          new_columns_data:
+            - name: input
+              data_type: text
+            - name: score
+              data_type: float
+      - type: mock_request
+        request_id: dataset_add_rows
+        count: 1
+        json_contains:
+          rows:
+            - cells:
+                - column_name: input
+                  value: hello
+                - column_name: score
+                  value: 0.98
+      - type: action_result
+        action_id: dataset_lifecycle
+        path: result.dataset.id
+        expected: 00000000-0000-0000-0000-000000000123
+      - type: action_result
+        action_id: dataset_lifecycle
+        path: result.columns_added
+        expected: 2
+      - type: action_result
+        action_id: dataset_lifecycle
+        path: result.rows_added
+        expected: 1
+
+  - id: annotation_score_lifecycle_e2e
+    name: Annotation score lifecycle e2e
+    requires:
+      - auth_api_key
+      - annotation_score_lifecycle
+    mock:
+      - id: score_create
+        method: POST
+        path: /model-hub/scores/
+        status: 200
+        response:
+          status: true
+          result:
+            id: score_e2e_123
+            label_id: label_e2e_123
+            source_type: trace
+            source_id: trace_e2e_123
+            value: accepted
+            score_source: api
+            notes: score note
+      - id: scores_bulk
+        method: POST
+        path: /model-hub/scores/bulk/
+        status: 200
+        response:
+          status: true
+          result:
+            created: 2
+            updated: 0
+      - id: scores_for_source
+        method: GET
+        path: /model-hub/scores/for-source/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: score_e2e_123
+              label_id: label_e2e_123
+              source_type: trace
+              source_id: trace_e2e_123
+              value: accepted
+              score_source: api
+              notes: score note
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: score_lifecycle
+        method: POST
+        endpoint: /annotation-score/lifecycle
+        body:
+          source_type: trace
+          source_id: trace_e2e_123
+          label_id: label_e2e_123
+          value: accepted
+          notes: score note
+          bulk_scores:
+            - label_id: label_e2e_123
+              value: accepted
+              score_source: api
+            - label_id: label_e2e_456
+              value: 0.73
+              score_source: api
+    assertions:
+      - type: mock_request
+        request_id: score_create
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+        json_contains:
+          source_type: trace
+          source_id: trace_e2e_123
+          label_id: label_e2e_123
+          value: accepted
+          score_source: api
+          notes: score note
+      - type: mock_request
+        request_id: scores_bulk
+        count: 1
+        json_contains:
+          source_type: trace
+          source_id: trace_e2e_123
+          scores:
+            - label_id: label_e2e_123
+              value: accepted
+            - label_id: label_e2e_456
+              value: 0.73
+      - type: mock_request
+        request_id: scores_for_source
+        count: 1
+        query:
+          source_type: trace
+          source_id: trace_e2e_123
+      - type: action_result
+        action_id: score_lifecycle
+        path: result.created.id
+        expected: score_e2e_123
+      - type: action_result
+        action_id: score_lifecycle
+        path: result.fetched.0.id
+        expected: score_e2e_123
