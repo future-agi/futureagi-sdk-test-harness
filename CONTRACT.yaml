@@ -573,3 +573,876 @@ suites:
         action_id: score_lifecycle
         path: result.fetched.0.id
         expected: score_e2e_123
+
+  - id: provider_api_key_lifecycle_e2e
+    name: Provider API key lifecycle e2e
+    requires:
+      - auth_api_key
+      - provider_api_key_lifecycle
+    mock:
+      - id: provider_key_set
+        method: POST
+        path: /model-hub/api-keys/
+        status: 200
+        response:
+          success: true
+      - id: provider_key_list
+        method: GET
+        path: /model-hub/api-keys/
+        status: 200
+        response:
+          results:
+            - provider: openai
+              key: sk-provider-test
+            - provider: anthropic
+              key: sk-anthropic-test
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: provider_api_key
+        method: POST
+        endpoint: /provider-api-key/lifecycle
+        body:
+          provider: OPENAI
+          provider_key: sk-provider-test
+    assertions:
+      - type: mock_request
+        request_id: provider_key_set
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+        json_contains:
+          provider: openai
+          key: sk-provider-test
+      - type: mock_request
+        request_id: provider_key_list
+        min_count: 2
+      - type: action_result
+        action_id: provider_api_key
+        path: result.fetched.provider
+        expected: openai
+
+  - id: annotation_metadata_lifecycle_e2e
+    name: Annotation metadata discovery e2e
+    requires:
+      - auth_api_key
+      - annotation_metadata_lifecycle
+    mock:
+      - id: metadata_labels
+        method: GET
+        path: /tracer/get-annotation-labels/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: label-meta-text
+              name: quality
+              type: text
+            - id: label-meta-category
+              name: category
+              type: categorical
+      - id: metadata_projects
+        method: GET
+        path: /tracer/project/list_projects/
+        status: 200
+        response:
+          result:
+            table:
+              - id: project-meta-123
+                name: SDK Metadata Project
+                project_type: tracing
+            metadata:
+              total_count: 1
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: metadata
+        method: POST
+        endpoint: /annotation/metadata
+        body:
+          project_id: project-meta-123
+          project_type: tracing
+          project_name: SDK Metadata Project
+    assertions:
+      - type: mock_request
+        request_id: metadata_labels
+        count: 1
+        query:
+          project_id: project-meta-123
+      - type: mock_request
+        request_id: metadata_projects
+        count: 1
+        query:
+          project_type: tracing
+          name: SDK Metadata Project
+      - type: action_result
+        action_id: metadata
+        path: result.labels.0.id
+        expected: label-meta-text
+      - type: action_result
+        action_id: metadata
+        path: result.projects.0.id
+        expected: project-meta-123
+
+  - id: annotation_queue_management_lifecycle_e2e
+    name: Annotation queue management lifecycle e2e
+    requires:
+      - auth_api_key
+      - annotation_queue_management_lifecycle
+    mock:
+      - id: label_create
+        method: POST
+        path: /model-hub/annotations-labels/
+        status: 200
+        response:
+          status: true
+          result:
+            id: label_manage_123
+            name: SDK manage label
+            type: text
+            description: Management suite label
+      - id: label_list
+        method: GET
+        path: /model-hub/annotations-labels/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: label_manage_123
+              name: SDK manage label
+              type: text
+      - id: label_get
+        method: GET
+        path: /model-hub/annotations-labels/label_manage_123/
+        status: 200
+        response:
+          status: true
+          result:
+            id: label_manage_123
+            name: SDK manage label
+            type: text
+      - id: manage_queue_create
+        method: POST
+        path: /model-hub/annotation-queues/
+        status: 200
+        response:
+          status: true
+          result:
+            id: queue_manage_123
+            name: SDK manage queue
+            status: draft
+            requires_review: true
+            annotations_required: 2
+      - id: manage_queue_list
+        method: GET
+        path: /model-hub/annotation-queues/
+        status: 200
+        response:
+          status: true
+          result:
+            results:
+              - id: queue_manage_123
+                name: SDK manage queue
+                status: draft
+                requires_review: true
+      - id: manage_queue_get
+        method: GET
+        path: /model-hub/annotation-queues/queue_manage_123/
+        status: 200
+        response:
+          status: true
+          result:
+            id: queue_manage_123
+            name: SDK manage queue
+            status: draft
+      - id: manage_queue_update
+        method: PATCH
+        path: /model-hub/annotation-queues/queue_manage_123/
+        status: 200
+        response:
+          status: true
+          result:
+            id: queue_manage_123
+            name: SDK manage queue
+            description: Updated description
+            status: draft
+      - id: manage_queue_activate
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/update-status/
+        status: 200
+        response:
+          status: true
+          result:
+            id: queue_manage_123
+            name: SDK manage queue
+            status: active
+      - id: manage_queue_add_label
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/add-label/
+        status: 200
+        response:
+          status: true
+          result:
+            attached: true
+      - id: manage_queue_add_items
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/items/add-items/
+        status: 200
+        response:
+          status: true
+          result:
+            added: 1
+            duplicates: 0
+            errors: []
+      - id: manage_queue_list_items
+        method: GET
+        path: /model-hub/annotation-queues/queue_manage_123/items/
+        status: 200
+        response:
+          status: true
+          result:
+            results:
+              - id: item_manage_123
+                source_type: trace
+                source_id: trace_manage_123
+                status: pending
+                assigned_to: user_manage_123
+      - id: manage_queue_assign_items
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/items/assign/
+        status: 200
+        response:
+          status: true
+          result:
+            assigned: 1
+      - id: manage_queue_import_annotations
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/items/item_manage_123/annotations/import/
+        status: 200
+        response:
+          status: true
+          result:
+            imported: 1
+      - id: manage_queue_get_annotations
+        method: GET
+        path: /model-hub/annotation-queues/queue_manage_123/items/item_manage_123/annotations/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: score_manage_123
+              label_id: label_manage_123
+              value: needs review
+              score_source: imported
+              annotator_id: user_manage_123
+      - id: manage_queue_skip_item
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/items/item_manage_123/skip/
+        status: 200
+        response:
+          status: true
+          result:
+            skipped: true
+            item_id: item_manage_123
+      - id: manage_queue_remove_items
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/items/bulk-remove/
+        status: 200
+        response:
+          status: true
+          result:
+            removed: 1
+      - id: manage_queue_remove_label
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/remove-label/
+        status: 200
+        response:
+          status: true
+          result:
+            removed: true
+      - id: manage_queue_analytics
+        method: GET
+        path: /model-hub/annotation-queues/queue_manage_123/analytics/
+        status: 200
+        response:
+          status: true
+          result:
+            total: 1
+            status_breakdown:
+              pending: 1
+      - id: manage_queue_agreement
+        method: GET
+        path: /model-hub/annotation-queues/queue_manage_123/agreement/
+        status: 200
+        response:
+          status: true
+          result:
+            overall_agreement: 0.91
+            per_label: []
+            annotator_pairs: []
+      - id: manage_queue_export_to_dataset
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/export-to-dataset/
+        status: 200
+        response:
+          status: true
+          result:
+            dataset_id: dataset_manage_123
+            dataset_name: SDK exported dataset
+            rows_created: 1
+      - id: manage_queue_complete
+        method: POST
+        path: /model-hub/annotation-queues/queue_manage_123/update-status/
+        status: 200
+        response:
+          status: true
+          result:
+            id: queue_manage_123
+            name: SDK manage queue
+            status: completed
+      - id: label_delete
+        method: DELETE
+        path: /model-hub/annotations-labels/label_manage_123/
+        status: 200
+        response:
+          status: true
+          result:
+            deleted: true
+      - id: manage_queue_delete
+        method: DELETE
+        path: /model-hub/annotation-queues/queue_manage_123/
+        status: 200
+        response:
+          status: true
+          result:
+            deleted: true
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: queue_management
+        method: POST
+        endpoint: /annotation-queue/management
+        body:
+          label:
+            name: SDK manage label
+            type: text
+            description: Management suite label
+          queue:
+            name: SDK manage queue
+            description: Created by management suite
+            updated_description: Updated description
+            requires_review: true
+            annotations_required: 2
+            status: draft
+          item:
+            id: item_manage_123
+            source_type: trace
+            source_id: trace_manage_123
+            status: pending
+          user_id: user_manage_123
+          annotations:
+            - label_id: label_manage_123
+              value: needs review
+              score_source: imported
+          dataset_name: SDK exported dataset
+          status_filter: completed
+    assertions:
+      - type: mock_request
+        request_id: label_create
+        count: 1
+        json_contains:
+          name: SDK manage label
+          type: text
+      - type: mock_request
+        request_id: manage_queue_update
+        count: 1
+        json_contains:
+          description: Updated description
+      - type: mock_request
+        request_id: manage_queue_assign_items
+        count: 1
+        json_contains:
+          item_ids:
+            - item_manage_123
+          user_id: user_manage_123
+      - type: mock_request
+        request_id: manage_queue_import_annotations
+        count: 1
+        json_contains:
+          annotator_id: user_manage_123
+          annotations:
+            - label_id: label_manage_123
+              value: needs review
+      - type: mock_request
+        request_id: manage_queue_export_to_dataset
+        count: 1
+        json_contains:
+          dataset_name: SDK exported dataset
+          status_filter: completed
+      - type: mock_request
+        request_id: manage_queue_complete
+        count: 1
+      - type: action_result
+        action_id: queue_management
+        path: result.label.id
+        expected: label_manage_123
+      - type: action_result
+        action_id: queue_management
+        path: result.imported.imported
+        expected: 1
+      - type: action_result
+        action_id: queue_management
+        path: result.export_to_dataset.dataset_id
+        expected: dataset_manage_123
+
+  - id: dataset_management_lifecycle_e2e
+    name: Dataset management lifecycle e2e
+    requires:
+      - auth_api_key
+      - dataset_management_lifecycle
+    mock:
+      - id: dataset_lookup
+        method: GET
+        path: /model-hub/develops/get-datasets-names/
+        status: 200
+        response:
+          status: true
+          result:
+            datasets:
+              - dataset_id: 00000000-0000-0000-0000-000000000456
+                name: SDK managed dataset
+                model_type: GenerativeLLM
+      - id: dataset_table
+        method: GET
+        path: /model-hub/develops/00000000-0000-0000-0000-000000000456/get-dataset-table/
+        status: 200
+        response:
+          status: true
+          result:
+            column_config:
+              - id: 00000000-0000-0000-0000-00000000c001
+                name: prompt
+                data_type: text
+                origin_type: OTHERS
+                is_visible: true
+                order_index: 0
+            table:
+              - row_id: 00000000-0000-0000-0000-000000000001
+                00000000-0000-0000-0000-00000000c001:
+                  cell_value: hello
+                order: 0
+            metadata:
+              total_pages: 1
+      - id: dataset_run_prompt
+        method: POST
+        path: /model-hub/develops/add_run_prompt_column/
+        status: 200
+        response:
+          status: true
+          result:
+            created: true
+      - id: dataset_eval_stats
+        method: GET
+        path: /model-hub/dataset/00000000-0000-0000-0000-000000000456/eval-stats/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: eval_template_123
+              name: correctness
+      - id: metrics_by_column
+        method: GET
+        path: /model-hub/metrics/by-column/
+        status: 200
+        response:
+          status: true
+          result:
+            - id: eval_template_123
+      - id: dataset_optimization
+        method: POST
+        path: /model-hub/optimisation/create/
+        status: 200
+        response:
+          status: true
+          result:
+            id: optimisation_123
+      - id: dataset_delete
+        method: DELETE
+        path: /model-hub/develops/delete_dataset/
+        status: 200
+        response:
+          status: true
+          result:
+            deleted: true
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: dataset_management
+        method: POST
+        endpoint: /dataset/management
+        body:
+          name: SDK managed dataset
+          lookup_column: prompt
+          run_prompt_name: generated_answer
+          model: gpt-4o-mini
+          messages:
+            - role: user
+              content: Answer the question.
+          optimization_name: SDK optimisation
+    assertions:
+      - type: mock_request
+        request_id: dataset_lookup
+        count: 1
+        query:
+          search_text: SDK managed dataset
+      - type: mock_request
+        request_id: dataset_table
+        min_count: 2
+      - type: mock_request
+        request_id: dataset_run_prompt
+        count: 1
+        json_contains:
+          dataset_id: 00000000-0000-0000-0000-000000000456
+          name: generated_answer
+      - type: mock_request
+        request_id: dataset_optimization
+        count: 1
+        json_contains:
+          name: SDK optimisation
+          column_id: 00000000-0000-0000-0000-00000000c001
+          dataset_id: 00000000-0000-0000-0000-000000000456
+      - type: mock_request
+        request_id: dataset_delete
+        count: 1
+        json_contains:
+          dataset_ids:
+            - 00000000-0000-0000-0000-000000000456
+      - type: action_result
+        action_id: dataset_management
+        path: result.column_id
+        expected: 00000000-0000-0000-0000-00000000c001
+
+  - id: prompt_lifecycle_e2e
+    name: Prompt lifecycle e2e
+    requires:
+      - auth_api_key
+      - prompt_lifecycle
+    mock:
+      - id: prompt_generate
+        method: POST
+        path: /model-hub/prompt-templates/generate-prompt/
+        status: 200
+        response:
+          status: true
+          result:
+            prompt: Hello {{name}}
+      - id: prompt_improve
+        method: POST
+        path: /model-hub/prompt-templates/improve-prompt/
+        status: 200
+        response:
+          status: true
+          result:
+            prompt: Hello {{name}}, with more context.
+      - id: prompt_create
+        method: POST
+        path: /model-hub/prompt-templates/create-draft/
+        status: 200
+        response:
+          status: true
+          result:
+            id: 00000000-0000-0000-0000-00000000a123
+            name: SDK managed prompt
+            template_version: v1
+            metadata: {}
+      - id: prompt_commit
+        method: POST
+        path: /model-hub/prompt-templates/00000000-0000-0000-0000-00000000a123/commit/
+        status: 200
+        response:
+          status: true
+          result:
+            committed: true
+      - id: prompt_labels
+        method: GET
+        path: /model-hub/prompt-labels/
+        status: 200
+        response:
+          results:
+            - id: prompt_label_prod
+              name: production
+              type: system
+      - id: prompt_assign_label
+        method: POST
+        path: /model-hub/prompt-labels/00000000-0000-0000-0000-00000000a123/prompt_label_prod/assign-label-by-id/
+        status: 200
+        response:
+          status: true
+          result:
+            assigned: true
+      - id: prompt_history
+        method: GET
+        path: /model-hub/prompt-history-executions/
+        status: 200
+        response:
+          results:
+            - id: prompt_version_1
+              template_version: v1
+              is_draft: false
+      - id: prompt_get_by_name
+        method: GET
+        path: /model-hub/prompt-labels/get-by-name/
+        status: 200
+        response:
+          status: true
+          result:
+            id: 00000000-0000-0000-0000-00000000a123
+            name: SDK managed prompt
+            version: v1
+            is_default: true
+            prompt_config:
+              - messages:
+                  - role: user
+                    content: Hello {{name}}, with more context.
+                configuration:
+                  model: gpt-4o-mini
+                  temperature: 0.7
+                  max_tokens: 1000
+                  top_p: 1
+            variable_names:
+              name: []
+      - id: prompt_template_labels
+        method: GET
+        path: /model-hub/prompt-labels/template-labels/
+        status: 200
+        response:
+          status: true
+          result:
+            template_name: SDK managed prompt
+            labels:
+              - production
+      - id: prompt_delete
+        method: DELETE
+        path: /model-hub/prompt-templates/00000000-0000-0000-0000-00000000a123/
+        status: 200
+        response:
+          status: true
+          result:
+            deleted: true
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: prompt_lifecycle
+        method: POST
+        endpoint: /prompt/lifecycle
+        body:
+          name: SDK managed prompt
+          message: Draft {{name}}
+          model: gpt-4o-mini
+          generate_requirements: Write a greeting prompt
+          improve_requirements: Make it more contextual
+          variables:
+            name: Ada
+          label: production
+          commit_message: Initial production commit
+          set_default: true
+    assertions:
+      - type: mock_request
+        request_id: prompt_generate
+        count: 1
+        json_contains:
+          statement: Write a greeting prompt
+      - type: mock_request
+        request_id: prompt_improve
+        count: 1
+        json_contains:
+          improvement_requirements: Make it more contextual
+      - type: mock_request
+        request_id: prompt_create
+        count: 1
+        json_contains:
+          name: SDK managed prompt
+          prompt_config:
+            - configuration:
+                model: gpt-4o-mini
+      - type: mock_request
+        request_id: prompt_commit
+        count: 1
+        json_contains:
+          version_name: v1
+          set_default: true
+      - type: mock_request
+        request_id: prompt_assign_label
+        count: 1
+        json_contains:
+          version: v1
+      - type: mock_request
+        request_id: prompt_get_by_name
+        count: 1
+        query:
+          name: SDK managed prompt
+          label: production
+      - type: mock_request
+        request_id: prompt_delete
+        count: 1
+      - type: action_result
+        action_id: prompt_lifecycle
+        path: result.fetched_template.name
+        expected: SDK managed prompt
+      - type: action_result
+        action_id: prompt_lifecycle
+        path: result.deleted
+        expected: true
+
+  - id: knowledge_base_lifecycle_e2e
+    name: Knowledge base lifecycle e2e
+    requires:
+      - auth_api_key
+      - knowledge_base_lifecycle
+    mock:
+      - id: kb_create
+        method: POST
+        path: /model-hub/knowledge-base/
+        status: 200
+        response:
+          status: true
+          result:
+            kb_id: 00000000-0000-0000-0000-00000000b123
+            kb_name: SDK managed KB
+            file_ids:
+              - kb_file_1
+      - id: kb_update
+        method: PATCH
+        path: /model-hub/knowledge-base/
+        status: 200
+        response:
+          status: true
+          result:
+            id: 00000000-0000-0000-0000-00000000b123
+            name: SDK managed KB renamed
+            files:
+              - kb_file_1
+      - id: kb_list
+        method: GET
+        path: /model-hub/knowledge-base/list/
+        status: 200
+        response:
+          status: true
+          result:
+            table_data:
+              - id: 00000000-0000-0000-0000-00000000b123
+                name: SDK managed KB renamed
+      - id: kb_delete_files
+        method: DELETE
+        path: /model-hub/knowledge-base/files/
+        status: 200
+        response:
+          status: true
+          result:
+            deleted: 1
+      - id: kb_delete
+        method: DELETE
+        path: /model-hub/knowledge-base/
+        status: 200
+        response:
+          status: true
+          result:
+            deleted: true
+    actions:
+      - id: reset
+        method: POST
+        endpoint: /reset
+        body: {}
+      - id: init
+        method: POST
+        endpoint: /init
+        body:
+          api_key: test-api-key
+          secret_key: test-secret-key
+          timeout: 10
+      - id: knowledge_base_lifecycle
+        method: POST
+        endpoint: /knowledge-base/lifecycle
+        body:
+          name: SDK managed KB
+          updated_name: SDK managed KB renamed
+          file_names:
+            - handbook.txt
+    assertions:
+      - type: mock_request
+        request_id: kb_create
+        count: 1
+        headers:
+          X-Api-Key: test-api-key
+          X-Secret-Key: test-secret-key
+      - type: mock_request
+        request_id: kb_update
+        count: 1
+      - type: mock_request
+        request_id: kb_list
+        min_count: 2
+        query:
+          search: SDK managed KB renamed
+      - type: mock_request
+        request_id: kb_delete_files
+        count: 1
+        json_contains:
+          file_names:
+            - handbook.txt
+          kb_id: 00000000-0000-0000-0000-00000000b123
+      - type: mock_request
+        request_id: kb_delete
+        count: 1
+        json_contains:
+          kb_ids:
+            - 00000000-0000-0000-0000-00000000b123
+      - type: action_result
+        action_id: knowledge_base_lifecycle
+        path: result.deleted
+        expected: true

@@ -135,10 +135,22 @@ class MockFutureAgiServer:
         return [request for request in self.requests if request.request_id == request_id]
 
     def _match(self, method: str, path: str) -> MockExpectation | None:
-        for expectation in self.expectations:
-            if expectation.method == method.upper() and expectation.path == path:
-                return expectation
-        return None
+        candidates = [
+            expectation
+            for expectation in self.expectations
+            if expectation.method == method.upper() and expectation.path == path
+        ]
+        if not candidates:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+
+        previous_count = sum(
+            1
+            for request in self.requests
+            if request.method == method.upper() and request.path == path
+        )
+        return candidates[min(previous_count, len(candidates) - 1)]
 
 
 def _parse_json(body: str) -> Any:
