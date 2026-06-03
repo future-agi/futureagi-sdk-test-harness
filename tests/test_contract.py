@@ -7,4 +7,8 @@ def test_load_default_contract():
     assert {suite["id"] for suite in contract.suites} >= {
         "auth_raw_request",
         "annotation_bulk_log",
+        "futureagi_client_basic",
+        "evals_lifecycle_e2e",
+        "simulation_lifecycle_e2e",
+        "tracing_lifecycle_e2e",
     }
